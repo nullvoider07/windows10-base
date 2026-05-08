@@ -6,12 +6,6 @@
 
 set -e  # Exit immediately if any command fails
 
-# ----------------------------- Usage ---------------------------------------
-if [ $# -eq 0 ]; then
-    echo "❌ Usage: $0 <github-username/repo-name>"
-    exit 1
-fi
-
 GITHUB_REPO="https://github.com/nullvoider07/windows10-base"
 REPO_NAME=$(basename "$GITHUB_REPO")
 
