@@ -3,76 +3,67 @@
 # One-command clone + automatic download of win10.qcow2 into win10-image/
 # =============================================================================
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop' # Exit immediately if any command fails
 
-$GitHubRepo = "https://github.com/nullvoider07/windows10-base"
-$RepoName   = "windows10-base"
+$GithubRepo = "https://github.com/nullvoider07/windows10-base"
+$RepoName = Split-Path $GithubRepo -Leaf
 
-Write-Host "🚀 Cloning GitHub repo: $GitHubRepo" -ForegroundColor Cyan
+Write-Host "🚀 Cloning GitHub repo: $GithubRepo"
 
 # ----------------------------- Clone with GitHub CLI -----------------------
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ GitHub CLI (gh) is not installed." -ForegroundColor Red
-    Write-Host "   Please install it from: https://cli.github.com" -ForegroundColor Yellow
+    Write-Host "❌ GitHub CLI (gh) is not installed. Please install it first:" -ForegroundColor Red
+    Write-Host "   https://cli.github.com"
     exit 1
 }
 
-if (Test-Path $RepoName) {
-    Write-Host "   Repository already exists. Pulling latest changes..." -ForegroundColor Yellow
-    Push-Location $RepoName
-    git pull --depth=1
-    Pop-Location
-} else {
-    gh repo clone $GitHubRepo $RepoName -- --depth=1
-}
+gh repo clone $GithubRepo $RepoName -- --depth=1
 
 # ----------------------------- Create folder -------------------------------
-$ImageDir = Join-Path $RepoName "win10-image"
-if (-not (Test-Path $ImageDir)) {
-    New-Item -ItemType Directory -Path $ImageDir -Force | Out-Null
-    Write-Host "📁 Created folder: win10-image/" -ForegroundColor Cyan
-}
+Write-Host "📁 Creating folder: win10-image/"
+$ImagePath = Join-Path $RepoName "win10-image"
+New-Item -ItemType Directory -Force -Path $ImagePath | Out-Null
 
 # ----------------------------- Ensure uv is available ---------------------
-Write-Host "🔧 Checking uv..." -ForegroundColor Cyan
+Write-Host "🔧 Checking uv..."
 
-if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    Write-Host "   Installing uv package manager..." -ForegroundColor Yellow
-    Invoke-RestMethod -Uri "https://astral.sh/uv/install.ps1" -OutFile "uv-install.ps1"
-    .\uv-install.ps1
-    Remove-Item uv-install.ps1 -Force
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    Write-Host "   uv already available — skipping installation."
 } else {
-    Write-Host "   uv already available — skipping installation." -ForegroundColor Green
+    Write-Host "   Installing uv package manager..."
+    Invoke-RestMethod -Uri https://astral.sh/uv/install.ps1 | Invoke-Expression
+    $env:Path += ";$HOME\.cargo\bin;$HOME\.local\bin"
 }
 
 # ----------------------------- Ephemeral venv for huggingface-cli ----------
-Write-Host "🔧 Creating ephemeral venv for huggingface-cli..." -ForegroundColor Cyan
+Write-Host "🔧 Creating ephemeral venv for huggingface-cli..."
 
-$HF_VENV = Join-Path ([System.IO.Path]::GetTempPath()) "hf-venv-$(Get-Random)"
-uv venv $HF_VENV --quiet
+$TempDir = [System.IO.Path]::GetTempPath()
+$HfVenv = Join-Path $TempDir "hf-venv-$(New-Guid)"
 
-Write-Host "   ✅ Temporary venv created." -ForegroundColor Green
+# uv venv picks the correct current Python automatically
+uv venv $HfVenv --quiet
 
-# Install huggingface-hub
-uv pip install --python "$HF_VENV\Scripts\python.exe" transformers --quiet
-Write-Host "   ✅ huggingface-hub installed in ephemeral venv." -ForegroundColor Green
+# Install directly into the venv — no --system, no activation needed
+uv pip install --python "$HfVenv\Scripts\python.exe" transformers --quiet
+
+Write-Host "   ✅ huggingface-hub installed in ephemeral venv."
 
 # ----------------------------- Download QCOW2 ------------------------------
-Write-Host "📥 Downloading win10.qcow2 (large file) into $ImageDir ..." -ForegroundColor Cyan
-Write-Host "    (This may take a while — progress bar will show)" -ForegroundColor Yellow
+Write-Host "📥 Downloading win10.qcow2 (large file) into $RepoName\win10-image\ ..."
+Write-Host "    (This may take a while — progress bar will show)"
 
-$hfPath = Join-Path $HF_VENV "Scripts\hf.exe"
-
-& $hfPath download NullVoider/windows10-base win10.qcow2 --local-dir $ImageDir
+# Call huggingface-cli directly by its venv path — no PATH lookup, no cache
+& "$HfVenv\Scripts\huggingface-cli.exe" download NullVoider/windows10-base win10.qcow2 --local-dir $ImagePath
 
 # ----------------------------- Cleanup venv --------------------------------
-Write-Host "🧹 Cleaning up ephemeral venv..." -ForegroundColor Cyan
-Remove-Item -Recurse -Force $HF_VENV -ErrorAction SilentlyContinue
+Write-Host "🧹 Cleaning up ephemeral venv..."
+Remove-Item -Recurse -Force $HfVenv
 
 # ----------------------------- Final message -------------------------------
 Write-Host ""
 Write-Host "✅ SUCCESS!" -ForegroundColor Green
 Write-Host "   Repository cloned → $RepoName\"
-Write-Host "   QCOW2 image ready at: $ImageDir\win10.qcow2"
+Write-Host "   QCOW2 image ready at: $RepoName\win10-image\win10.qcow2"
 Write-Host ""
-Write-Host "   Next time just run: cd $RepoName && git pull" -ForegroundColor Gray
+Write-Host "   Next time just run: cd $RepoName ; git pull"

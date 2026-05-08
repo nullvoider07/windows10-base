@@ -1,69 +1,73 @@
+#!/bin/bash
 # =============================================================================
-# setup-win10.ps1
+# setup-win10.sh
 # One-command clone + automatic download of win10.qcow2 into win10-image/
 # =============================================================================
 
-$ErrorActionPreference = 'Stop' # Exit immediately if any command fails
+set -e  # Exit immediately if any command fails
 
-$GithubRepo = "https://github.com/nullvoider07/windows10-base"
-$RepoName = Split-Path $GithubRepo -Leaf
+GITHUB_REPO="https://github.com/nullvoider07/windows10-base"
+REPO_NAME=$(basename "$GITHUB_REPO")
 
-Write-Host "🚀 Cloning GitHub repo: $GithubRepo"
+echo "🚀 Cloning GitHub repo: $GITHUB_REPO"
 
 # ----------------------------- Clone with GitHub CLI -----------------------
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ GitHub CLI (gh) is not installed. Please install it first:" -ForegroundColor Red
-    Write-Host "   https://cli.github.com"
+if ! command -v gh >/dev/null 2>&1; then
+    echo "❌ GitHub CLI (gh) is not installed. Please install it first:"
+    echo "   https://cli.github.com"
     exit 1
-}
+fi
 
-gh repo clone $GithubRepo $RepoName -- --depth=1
+gh repo clone "$GITHUB_REPO" "$REPO_NAME" -- --depth=1
 
 # ----------------------------- Create folder -------------------------------
-Write-Host "📁 Creating folder: win10-image/"
-$ImagePath = Join-Path $RepoName "win10-image"
-New-Item -ItemType Directory -Force -Path $ImagePath | Out-Null
+echo "📁 Creating folder: win10-image/"
+mkdir -p "$REPO_NAME/win10-image"
 
 # ----------------------------- Ensure uv is available ---------------------
-Write-Host "🔧 Checking uv..."
+echo "🔧 Checking uv..."
 
-if (Get-Command uv -ErrorAction SilentlyContinue) {
-    Write-Host "   uv already available — skipping installation."
-} else {
-    Write-Host "   Installing uv package manager..."
-    Invoke-RestMethod -Uri https://astral.sh/uv/install.ps1 | Invoke-Expression
-    $env:Path += ";$HOME\.cargo\bin;$HOME\.local\bin"
-}
+if command -v uv >/dev/null 2>&1; then
+    echo "   uv already available — skipping installation."
+else
+    echo "   Installing uv package manager..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+    hash -r
+fi
 
 # ----------------------------- Ephemeral venv for huggingface-cli ----------
-Write-Host "🔧 Creating ephemeral venv for huggingface-cli..."
+# Create a temporary venv, install huggingface-hub into it, run the download,
+# then delete the venv. This avoids all PATH/hash-cache/interpreter-mismatch
+# issues caused by stale system-wide or tool-level installs.
+echo "🔧 Creating ephemeral venv for huggingface-cli..."
 
-$TempDir = [System.IO.Path]::GetTempPath()
-$HfVenv = Join-Path $TempDir "hf-venv-$(New-Guid)"
+HF_VENV="$(mktemp -d)/hf-venv"
 
 # uv venv picks the correct current Python automatically
-uv venv $HfVenv --quiet
+uv venv "$HF_VENV" --quiet
 
 # Install directly into the venv — no --system, no activation needed
-uv pip install --python "$HfVenv\Scripts\python.exe" transformers --quiet
+uv pip install --python "$HF_VENV/bin/python" transformers --quiet
 
-Write-Host "   ✅ huggingface-hub installed in ephemeral venv."
+echo "   ✅ huggingface-hub installed in ephemeral venv."
 
 # ----------------------------- Download QCOW2 ------------------------------
-Write-Host "📥 Downloading win10.qcow2 (large file) into $RepoName\win10-image\ ..."
-Write-Host "    (This may take a while — progress bar will show)"
+echo "📥 Downloading win10.qcow2 (large file) into $REPO_NAME/win10-image/ ..."
+echo "    (This may take a while — progress bar will show)"
 
 # Call huggingface-cli directly by its venv path — no PATH lookup, no cache
-& "$HfVenv\Scripts\huggingface-cli.exe" download NullVoider/windows10-base win10.qcow2 --local-dir $ImagePath
+"$HF_VENV/bin/hf" download NullVoider/windows10-base win10.qcow2 \
+    --local-dir "$REPO_NAME/win10-image"
 
 # ----------------------------- Cleanup venv --------------------------------
-Write-Host "🧹 Cleaning up ephemeral venv..."
-Remove-Item -Recurse -Force $HfVenv
+echo "🧹 Cleaning up ephemeral venv..."
+rm -rf "$HF_VENV"
 
 # ----------------------------- Final message -------------------------------
-Write-Host ""
-Write-Host "✅ SUCCESS!" -ForegroundColor Green
-Write-Host "   Repository cloned → $RepoName\"
-Write-Host "   QCOW2 image ready at: $RepoName\win10-image\win10.qcow2"
-Write-Host ""
-Write-Host "   Next time just run: cd $RepoName ; git pull"
+echo ""
+echo "✅ SUCCESS!"
+echo "   Repository cloned → $REPO_NAME/"
+echo "   QCOW2 image ready at: $REPO_NAME/win10-image/win10.qcow2"
+echo ""
+echo "   Next time just run: cd $REPO_NAME && git pull"
