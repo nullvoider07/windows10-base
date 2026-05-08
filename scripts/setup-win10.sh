@@ -27,7 +27,7 @@ mkdir -p "$REPO_NAME/win10-image"
 # ----------------------------- Ensure hf CLI via uv -----------------------
 echo "🔧 Checking Hugging Face CLI (hf) and huggingface-hub package..."
 
-# Repair broken hf (the exact error you saw before)
+# Step 1: Repair broken hf if it exists but doesn't work
 if command -v hf >/dev/null 2>&1; then
     if ! hf --help >/dev/null 2>&1; then
         echo "   hf CLI exists but is broken. Repairing..."
@@ -35,8 +35,10 @@ if command -v hf >/dev/null 2>&1; then
     fi
 fi
 
-# Main check: Is hf working AND is the Python package installed?
-if ! command -v hf >/dev/null 2>&1 || ! python3 -c "import huggingface_hub" 2>/dev/null; then
+# Step 2: Check if everything is already good
+if command -v hf >/dev/null 2>&1 && python3 -c "import huggingface_hub" 2>/dev/null; then
+    echo "   ✅ huggingface-hub and hf CLI already installed and working. Skipping install."
+else
     echo "❌ hf CLI or huggingface-hub not found/working. Installing via uv..."
 
     # uv check
@@ -49,12 +51,10 @@ if ! command -v hf >/dev/null 2>&1 || ! python3 -c "import huggingface_hub" 2>/d
     fi
 
     echo "   Installing/Upgrading huggingface-hub with uv..."
-    uv pip install -U huggingface-hub
+    uv pip install -U --system huggingface-hub
 
-    # Refresh command cache
+    # Refresh shell command cache
     hash -r
-else
-    echo "   ✅ huggingface-hub and hf CLI already installed and working."
 fi
 
 # ----------------------------- Download QCOW2 ------------------------------
