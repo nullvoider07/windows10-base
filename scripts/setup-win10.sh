@@ -12,10 +12,27 @@ REPO_NAME=$(basename "$GITHUB_REPO")
 echo "🚀 Cloning GitHub repo: $GITHUB_REPO"
 
 # ----------------------------- Clone with GitHub CLI -----------------------
+echo "🔧 Checking GitHub CLI..."
+
 if ! command -v gh >/dev/null 2>&1; then
-    echo "❌ GitHub CLI (gh) is not installed. Please install it first:"
-    echo "   https://cli.github.com"
-    exit 1
+    echo "   GitHub CLI not found. Attempting to install..."
+    
+    # Try Homebrew (macOS/Linux)
+    if command -v brew >/dev/null 2>&1; then
+        brew install gh
+    # Try APT (Debian/Ubuntu)
+    elif command -v apt-get >/dev/null 2>&1; then
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+        sudo apt-get update && sudo apt-get install gh -y
+    else
+        echo "❌ Unsupported package manager. Please install GitHub CLI manually:"
+        echo "   https://cli.github.com"
+        exit 1
+    fi
+else
+    echo "   ✅ GitHub CLI already available."
 fi
 
 gh repo clone "$GITHUB_REPO" "$REPO_NAME" -- --depth=1
