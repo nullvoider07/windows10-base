@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/nullvoider07/windows10-base/master/
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/nullvoider07/windows10-base/master/scripts/setup-win10.ps1 | iex
+irm https://raw.githubusercontent.com/nullvoider07/windows10-base/master/scripts/setup-win10.sh | iex
 ```
 
 The scripts will clone the repository, download the QCOW2 image from HuggingFace, and place all files in the correct locations automatically. Once complete, proceed to [Installation & Deployment](#installation--deployment).
