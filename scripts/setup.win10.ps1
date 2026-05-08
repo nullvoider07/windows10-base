@@ -68,7 +68,7 @@ Write-Host "📥 Downloading win10.qcow2 (large file) into $RepoName\win10-image
 Write-Host "    (This may take a while — progress bar will show)"
 
 # Call huggingface-cli directly by its venv path — no PATH lookup, no cache
-& "$HfVenv\Scripts\huggingface-cli.exe" download NullVoider/windows10-base win10.qcow2 --local-dir $ImagePath
+& "$HfVenv\Scripts\hf.exe" download NullVoider/windows10-base win10.qcow2 --local-dir $ImagePath
 
 # ----------------------------- Cleanup venv --------------------------------
 Write-Host "🧹 Cleaning up ephemeral venv..."
