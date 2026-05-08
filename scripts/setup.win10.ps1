@@ -12,9 +12,7 @@ Write-Host "🚀 Cloning GitHub repo: $GithubRepo"
 
 # ----------------------------- Clone with GitHub CLI -----------------------
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ GitHub CLI (gh) is not installed. Please install it first:" -ForegroundColor Red
-    Write-Host "   https://cli.github.com"
-    exit 1
+    throw "❌ GitHub CLI (gh) is not installed. Please install it first: https://cli.github.com"
 }
 
 gh repo clone $GithubRepo $RepoName -- --depth=1
