@@ -48,7 +48,7 @@ HF_VENV="$(mktemp -d)/hf-venv"
 uv venv "$HF_VENV" --quiet
 
 # Install directly into the venv — no --system, no activation needed
-uv pip install "$HF_VENV" transformers --quiet
+uv pip install --python "$HF_VENV/bin/python" transformers --quiet
 
 echo "   ✅ huggingface-hub installed in ephemeral venv."
 
