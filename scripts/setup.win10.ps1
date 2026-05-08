@@ -41,8 +41,6 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Invoke-RestMethod -Uri "https://astral.sh/uv/install.ps1" -OutFile "uv-install.ps1"
     .\uv-install.ps1
     Remove-Item uv-install.ps1 -Force
-    # Refresh PATH
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "User") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
 } else {
     Write-Host "   uv already available — skipping installation." -ForegroundColor Green
 }
@@ -65,8 +63,7 @@ Write-Host "    (This may take a while — progress bar will show)" -ForegroundC
 
 $hfPath = Join-Path $HF_VENV "Scripts\hf.exe"
 
-& $hfPath download NullVoider/windows10-base win10.qcow2 `
-    --local-dir $ImageDir
+& $hfPath download NullVoider/windows10-base win10.qcow2 --local-dir $ImageDir
 
 # ----------------------------- Cleanup venv --------------------------------
 Write-Host "🧹 Cleaning up ephemeral venv..." -ForegroundColor Cyan
