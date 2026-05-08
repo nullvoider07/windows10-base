@@ -9,6 +9,26 @@
 
 ---
 
+## Getting Started
+
+### Clone the Repository
+
+The QCOW2 disk image is hosted on HuggingFace due to its size. The setup scripts handle downloading it alongside the repository files automatically. It is recommended to use the below command to clone the repository.
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nullvoider07/windows10-base/master/scripts/setup-win10.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/nullvoider07/windows10-base/master/scripts/setup-win10.ps1 | iex
+```
+
+The scripts will clone the repository, download the QCOW2 image from HuggingFace, and place all files in the correct locations automatically. Once complete, proceed to [Installation & Deployment](#installation--deployment).
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -25,19 +45,20 @@
    - [Prerequisites](#prerequisites)
    - [Docker Compose Deployment](#docker-compose-deployment)
    - [Testing the Container](#testing-the-container)
-6. [Installed Software](#installed-software)
-7. [Development Environments](#development-environments)
-8. [The-Eye Integration](#the-eye-integration)
-9. [Task Executor API](#task-executor-api)
-10. [Remote Access Methods](#remote-access-methods)
+6. [Customizing the Image](#customizing-the-image)
+7. [Installed Software](#installed-software)
+8. [Development Environments](#development-environments)
+9. [The-Eye Integration](#the-eye-integration)
+10. [Task Executor API](#task-executor-api)
+11. [Remote Access Methods](#remote-access-methods)
    - [RDP (Recommended)](#rdp-recommended)
    - [SSH Access](#ssh-access)
-11. [Troubleshooting](#troubleshooting)
-12. [CI/CD Integration](#cicd-integration)
-13. [Reporting Issues](#reporting-issues)
-14. [FAQ](#faq)
-15. [License](#license)
-16. [About This Project](#about-this-project)
+12. [Troubleshooting](#troubleshooting)
+13. [CI/CD Integration](#cicd-integration)
+14. [Reporting Issues](#reporting-issues)
+15. [FAQ](#faq)
+16. [License](#license)
+17. [About This Project](#about-this-project)
 
 ---
 
@@ -77,7 +98,7 @@ This container is designed for:
 ### Operating System
 ✅ **Windows 10 Pro** - Latest releases  
 ✅ **Virtual Disk** - 2TB of massive storage capacity.  
-✅ **RAM** - Customizable memory allocation for smooth performance (minimum 4 GB for smooth experience). 
+✅ **RAM** - Customizable memory allocation for smooth performance (minimum 4 GB for smooth experience).  
 ✅ **Ephemeral State** - Clean isolation with no external dependencies
 
 **Note**: The virtual storage does not mandate requirement of exactly 2TB of storage in the device running the container. The virtual disk is a growable disk, and 2TB is the cap on the virtual disk. 
@@ -262,8 +283,8 @@ Pre-installed extensions:
 ### Performance Metrics
 
 **Boot Performance**:
-- **Cold Boot**: 25 seconds
-- **Container Start**: Same as cold boot
+- **Windows Boot**: 25 seconds
+- **Container Start**: Immediate
 - **Desktop Ready**: Immediate after boot completion
 
 **Runtime Performance**:
@@ -536,6 +557,157 @@ docker stats win_agent
 # MEM: ~4GB allocated
 # NET I/O: Varies based on remote access usage
 ```
+
+---
+
+## Customizing the Image
+
+This section walks through the full process of modifying the Windows 10 environment and rebuilding a custom Docker image — useful for adding languages, tools, updated scripts, or any workflow-specific configurations and customizations.
+
+### Prerequisites
+
+- Repository cloned with QCOW2 downloaded (see [Getting Started](#getting-started))
+- Docker and QEMU utilities installed (`qemu-img` must be on PATH)
+- At least 100 GB free disk space for the conversion steps
+
+---
+
+### Step 1 — Modify the YAML Configuration (Optional)
+
+If you need to adjust the RAM or CPU core allocation before booting into Windows 10, edit the YAML file inside the `scripts/` directory of the cloned repo:
+
+```bash
+# Example: open and edit the YAML before moving it
+nano scripts/win10.yaml
+```
+
+Then move it to a separate working directory of your choice — this directory will be your build workspace for all subsequent steps:
+
+```bash
+mv scripts/win10.yaml /your/working/directory/
+```
+
+> ⚠️ **WARNING**: Only change RAM and CPU core values in the YAML. **Do not change the disk size** — altering the disk size will corrupt `data.img` and make it unusable. If that happens, you will need to re-run Step 2 from the original QCOW2 file to start over.
+
+---
+
+### Step 2 — Convert the QCOW2 to a Raw Image
+
+From the root of the cloned repository, convert the QCOW2 disk image to a raw format that QEMU can use as a mutable disk:
+
+```bash
+qemu-img convert -p -f qcow2 -O raw win10-image/win10.qcow2 data.img
+```
+
+This may take several minutes depending on your disk speed. The `-p` flag shows progress.
+
+---
+
+### Step 3 — Create the Windows 10 Directory Structure
+
+Navigate to the working directory where you moved the YAML file and create the expected directory layout:
+
+```bash
+cd /your/working/directory
+mkdir windows10-storage
+```
+
+---
+
+### Step 4 — Place the Disk Images
+
+Copy or move `base.dmg` and the `data.img` produced in Step 2 into the directory you just created:
+
+```bash
+# Copy (safe — preserves originals)
+cp /path/to/data.img windows10-storage/data.img
+
+# Or move (saves disk space if originals are no longer needed)
+mv /path/to/data.img windows10-storage/data.img
+```
+
+---
+
+### Step 5 — Boot and Customize
+
+Start the container from your working directory:
+
+```bash
+docker compose -f win10.yaml up -d
+```
+
+Connect via NoMachine or VNC and perform your customizations inside the running Windows 10 environment — updating the Task Executor script, installing apps, adding programming languages, configuring tools, or anything else your workflow requires.
+
+---
+
+### Step 6 — Clean Up Before Capture
+
+Before shutting down, ensure the Windows 10 environment is clean so no personal or session data ends up in your image:
+
+- **Browser**: Close all tabs and clear all browsing history, cookies, and cached data in every browser installed
+- **Terminal**: Wipe shell history — in the Powershell/Cmd terminal run `Remove-Item (Get-PSReadlineOption).HistorySavePath`
+- **Recent items**: Clear recent files, recent apps, and recent servers from file explorer quick access and app search.
+- **Trash**: Empty the Trash
+
+---
+
+### Step 7 — Shut Down and Stop the Container
+
+Shut down Windows cleanly from within the OS (Win Key → Power button → Shut Down or Alt+F4 → Shut Down) and wait for the guest to fully power off. Then, from the host terminal in your working directory:
+
+```bash
+docker compose -f win10.yaml down
+```
+
+---
+
+### Step 8 — Convert Back to QCOW2
+
+From the `windows10-storage/` directory, convert the modified raw image back to a compressed QCOW2:
+
+```bash
+cd windows10-storage
+qemu-img convert -p -O qcow2 -c data.img win10.qcow2
+```
+
+The `-c` flag enables compression to keep the image size manageable. This step may take several minutes.
+
+---
+
+### Step 9 — Move the QCOW2 to the Build Directory
+
+Move the new QCOW2 back into the `windows10-storage/` directory of the cloned repository. If a QCOW2 already exists there, remove it first:
+
+```bash
+# Remove existing if present
+rm /path/to/cloned-repo/win10-image/win10.qcow2
+
+# Move new QCOW2 into place
+mv windows10-storage/win10.qcow2 /path/to/cloned-repo/windows10-storage/win10.qcow2
+```
+
+---
+
+### Step 10 — Build Your Custom Image
+
+From the root of the cloned repository, build the Docker image with your chosen tag:
+
+```bash
+docker build -f win10-base.dockerfile -t <username>/<image-name>:<version-number> .
+```
+
+Example:
+```bash
+docker build -f win10-base.dockerfile -t myorg/win10-custom:v1 .
+```
+
+Once the build completes, clear the Docker builder cache to avoid storage bloat:
+
+```bash
+docker builder prune --all
+```
+
+Your custom image is ready to use in your workflow.
 
 ---
 

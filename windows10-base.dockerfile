@@ -21,8 +21,8 @@ WORKDIR /vm
 COPY win10-cua-image/win10-cua.qcow2 /vm/source.qcow2
 
 # 4. Copy the Entrypoint Script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY entrypoint.sh /scripts/entrypoint.sh
+RUN chmod +x /scripts/entrypoint.sh
 
 EXPOSE 5900 3389 8006 2222 50051 50052 9090
 
