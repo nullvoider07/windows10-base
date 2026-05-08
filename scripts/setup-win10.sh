@@ -24,53 +24,45 @@ gh repo clone "$GITHUB_REPO" "$REPO_NAME" -- --depth=1
 echo "📁 Creating folder: win10-image/"
 mkdir -p "$REPO_NAME/win10-image"
 
-# ----------------------------- Ensure huggingface-cli via uv ---------------
-echo "🔧 Checking Hugging Face CLI (huggingface-cli)..."
+# ----------------------------- Ensure uv is available ---------------------
+echo "🔧 Checking uv..."
 
-# Step 1: Repair broken huggingface-cli if it exists but doesn't work.
-# Resolve the actual on-disk path dynamically via `command -v` (avoids
-# hardcoding ~/.local/bin which may not be where it lives on every system).
-# Flush bash's command hash cache with `hash -r` immediately after deletion
-# so Step 2's `command -v` does a fresh PATH lookup instead of returning
-# the now-stale cached entry pointing at the deleted file.
-if command -v huggingface-cli >/dev/null 2>&1; then
-    if ! huggingface-cli --help >/dev/null 2>&1; then
-        echo "   huggingface-cli exists but is broken. Repairing..."
-        rm -f "$(command -v huggingface-cli)" 2>/dev/null || true
-        hash -r   # flush cache — critical, or Step 2 still sees the deleted path
-    fi
-fi
-
-# Step 2: Fresh lookup after hash -r.
-if command -v huggingface-cli >/dev/null 2>&1; then
-    echo "   ✅ huggingface-cli already installed and working. Skipping install."
+if command -v uv >/dev/null 2>&1; then
+    echo "   uv already available — skipping installation."
 else
-    echo "   huggingface-cli not found. Installing via uv..."
-
-    # uv check
-    if command -v uv >/dev/null 2>&1; then
-        echo "   uv already available — skipping uv installation."
-    else
-        echo "   Installing uv package manager..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
-    fi
-
-    # uv tool install manages its own isolated environment internally —
-    # no system Python is touched, so PEP 668 errors cannot occur.
-    echo "   Installing huggingface-hub via uv tool..."
-    uv tool install huggingface-hub
-
-    # Ensure uv's tool bin dir is on PATH for this session, then flush cache.
-    export PATH="$HOME/.local/bin:$PATH"
+    echo "   Installing uv package manager..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
     hash -r
 fi
+
+# ----------------------------- Ephemeral venv for huggingface-cli ----------
+# Create a temporary venv, install huggingface-hub into it, run the download,
+# then delete the venv. This avoids all PATH/hash-cache/interpreter-mismatch
+# issues caused by stale system-wide or tool-level installs.
+echo "🔧 Creating ephemeral venv for huggingface-cli..."
+
+HF_VENV="$(mktemp -d)/hf-venv"
+
+# uv venv picks the correct current Python automatically
+uv venv "$HF_VENV" --quiet
+
+# Install directly into the venv — no --system, no activation needed
+uv pip install --python "$HF_VENV" huggingface-hub --quiet
+
+echo "   ✅ huggingface-hub installed in ephemeral venv."
 
 # ----------------------------- Download QCOW2 ------------------------------
 echo "📥 Downloading win10.qcow2 (large file) into $REPO_NAME/win10-image/ ..."
 echo "    (This may take a while — progress bar will show)"
 
-huggingface-cli download NullVoider/windows10-base win10.qcow2 --local-dir "$REPO_NAME/win10-image"
+# Call huggingface-cli directly by its venv path — no PATH lookup, no cache
+"$HF_VENV/bin/huggingface-cli" download NullVoider/windows10-base win10.qcow2 \
+    --local-dir "$REPO_NAME/win10-image"
+
+# ----------------------------- Cleanup venv --------------------------------
+echo "🧹 Cleaning up ephemeral venv..."
+rm -rf "$HF_VENV"
 
 # ----------------------------- Final message -------------------------------
 echo ""
