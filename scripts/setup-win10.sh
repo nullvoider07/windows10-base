@@ -24,45 +24,28 @@ gh repo clone "$GITHUB_REPO" "$REPO_NAME" -- --depth=1
 echo "📁 Creating folder: win10-image/"
 mkdir -p "$REPO_NAME/win10-image"
 
-# ----------------------------- Ensure uv is available ---------------------
-echo "🔧 Checking uv..."
+# ----------------------------- Ensure hf CLI is available ------------------
+# hf is a standalone binary — it is NOT a Python package.
+# pip/uv installing huggingface-hub only gives the deprecated huggingface-cli
+# shim. The real hf CLI must be installed via its own official installer.
+echo "🔧 Checking hf CLI..."
 
-if command -v uv >/dev/null 2>&1; then
-    echo "   uv already available — skipping installation."
+# Ensure ~/.local/bin is on PATH (hf installer puts the binary there)
+export PATH="$HOME/.local/bin:$PATH"
+
+if command -v hf >/dev/null 2>&1 && hf --help >/dev/null 2>&1; then
+    echo "   ✅ hf CLI already installed and working. Skipping install."
 else
-    echo "   Installing uv package manager..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+    echo "   Installing hf CLI (standalone)..."
+    curl -LsSf https://hf.co/cli/install.sh | bash
     hash -r
 fi
-
-# ----------------------------- Ephemeral venv for huggingface-cli ----------
-# Create a temporary venv, install huggingface-hub into it, run the download,
-# then delete the venv. This avoids all PATH/hash-cache/interpreter-mismatch
-# issues caused by stale system-wide or tool-level installs.
-echo "🔧 Creating ephemeral venv for huggingface-cli..."
-
-HF_VENV="$(mktemp -d)/hf-venv"
-
-# uv venv picks the correct current Python automatically
-uv venv "$HF_VENV" --quiet
-
-# Install directly into the venv — no --system, no activation needed
-uv pip install --python "$HF_VENV" huggingface-hub --quiet
-
-echo "   ✅ huggingface-hub installed in ephemeral venv."
 
 # ----------------------------- Download QCOW2 ------------------------------
 echo "📥 Downloading win10.qcow2 (large file) into $REPO_NAME/win10-image/ ..."
 echo "    (This may take a while — progress bar will show)"
 
-# Call huggingface-cli directly by its venv path — no PATH lookup, no cache
-"$HF_VENV/bin/hf" download NullVoider/windows10-base win10.qcow2 \
-    --local-dir "$REPO_NAME/win10-image"
-
-# ----------------------------- Cleanup venv --------------------------------
-echo "🧹 Cleaning up ephemeral venv..."
-rm -rf "$HF_VENV"
+hf download NullVoider/windows10-base win10.qcow2 --local-dir "$REPO_NAME/win10-image"
 
 # ----------------------------- Final message -------------------------------
 echo ""
