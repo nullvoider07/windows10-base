@@ -57,7 +57,7 @@ echo "📥 Downloading win10.qcow2 (large file) into $REPO_NAME/win10-image/ ...
 echo "    (This may take a while — progress bar will show)"
 
 # Call huggingface-cli directly by its venv path — no PATH lookup, no cache
-"$HF_VENV/bin/huggingface-cli" download NullVoider/windows10-base win10.qcow2 \
+"$HF_VENV/bin/hf" download NullVoider/windows10-base win10.qcow2 \
     --local-dir "$REPO_NAME/win10-image"
 
 # ----------------------------- Cleanup venv --------------------------------
