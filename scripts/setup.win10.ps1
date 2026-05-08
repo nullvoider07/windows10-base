@@ -11,8 +11,24 @@ $RepoName = Split-Path $GithubRepo -Leaf
 Write-Host "🚀 Cloning GitHub repo: $GithubRepo"
 
 # ----------------------------- Clone with GitHub CLI -----------------------
+Write-Host "🔧 Checking GitHub CLI..."
+
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    throw "❌ GitHub CLI (gh) is not installed. Please install it first: https://cli.github.com"
+    Write-Host "   GitHub CLI not found. Installing via winget..."
+    
+    # Install gh silently, accepting agreements automatically
+    winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements
+    
+    # Refresh the PATH variables in the current session so 'gh' is recognized immediately
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    
+    # Verify installation succeeded
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        throw "❌ Failed to install GitHub CLI automatically. Please install it manually from https://cli.github.com"
+    }
+    Write-Host "   ✅ GitHub CLI installed successfully."
+} else {
+    Write-Host "   ✅ GitHub CLI already available."
 }
 
 gh repo clone $GithubRepo $RepoName -- --depth=1
