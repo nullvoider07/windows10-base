@@ -27,15 +27,21 @@ mkdir -p "$REPO_NAME/win10-image"
 # ----------------------------- Ensure huggingface-cli via uv ---------------
 echo "🔧 Checking Hugging Face CLI (huggingface-cli)..."
 
-# Step 1: Repair broken huggingface-cli if it exists but doesn't work
+# Step 1: Repair broken huggingface-cli if it exists but doesn't work.
+# Resolve the actual on-disk path dynamically via `command -v` (avoids
+# hardcoding ~/.local/bin which may not be where it lives on every system).
+# Flush bash's command hash cache with `hash -r` immediately after deletion
+# so Step 2's `command -v` does a fresh PATH lookup instead of returning
+# the now-stale cached entry pointing at the deleted file.
 if command -v huggingface-cli >/dev/null 2>&1; then
     if ! huggingface-cli --help >/dev/null 2>&1; then
         echo "   huggingface-cli exists but is broken. Repairing..."
-        rm -f "$HOME/.local/bin/huggingface-cli" 2>/dev/null || true
+        rm -f "$(command -v huggingface-cli)" 2>/dev/null || true
+        hash -r   # flush cache — critical, or Step 2 still sees the deleted path
     fi
 fi
 
-# Step 2: Check if everything is already good
+# Step 2: Fresh lookup after hash -r.
 if command -v huggingface-cli >/dev/null 2>&1; then
     echo "   ✅ huggingface-cli already installed and working. Skipping install."
 else
@@ -50,15 +56,13 @@ else
         export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
     fi
 
-    # uv tool install puts the CLI entry point into ~/.local/bin
-    # and manages its own isolated environment — no system Python needed.
+    # uv tool install manages its own isolated environment internally —
+    # no system Python is touched, so PEP 668 errors cannot occur.
     echo "   Installing huggingface-hub via uv tool..."
     uv tool install huggingface-hub
 
-    # Make sure ~/.local/bin is on PATH for this session
+    # Ensure uv's tool bin dir is on PATH for this session, then flush cache.
     export PATH="$HOME/.local/bin:$PATH"
-
-    # Refresh shell command cache
     hash -r
 fi
 
