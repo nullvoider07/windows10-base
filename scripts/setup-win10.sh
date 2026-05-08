@@ -24,22 +24,22 @@ gh repo clone "$GITHUB_REPO" "$REPO_NAME" -- --depth=1
 echo "📁 Creating folder: win10-image/"
 mkdir -p "$REPO_NAME/win10-image"
 
-# ----------------------------- Ensure hf CLI via uv -----------------------
-echo "🔧 Checking Hugging Face CLI (hf) and huggingface-hub package..."
+# ----------------------------- Ensure huggingface-cli via uv ---------------
+echo "🔧 Checking Hugging Face CLI (huggingface-cli)..."
 
-# Step 1: Repair broken hf if it exists but doesn't work
-if command -v hf >/dev/null 2>&1; then
-    if ! hf --help >/dev/null 2>&1; then
-        echo "   hf CLI exists but is broken. Repairing..."
-        rm -f "$HOME/.local/bin/hf" 2>/dev/null || true
+# Step 1: Repair broken huggingface-cli if it exists but doesn't work
+if command -v huggingface-cli >/dev/null 2>&1; then
+    if ! huggingface-cli --help >/dev/null 2>&1; then
+        echo "   huggingface-cli exists but is broken. Repairing..."
+        rm -f "$HOME/.local/bin/huggingface-cli" 2>/dev/null || true
     fi
 fi
 
 # Step 2: Check if everything is already good
-if command -v hf >/dev/null 2>&1 && python3 -c "import huggingface_hub" 2>/dev/null; then
-    echo "   ✅ huggingface-hub and hf CLI already installed and working. Skipping install."
+if command -v huggingface-cli >/dev/null 2>&1; then
+    echo "   ✅ huggingface-cli already installed and working. Skipping install."
 else
-    echo "❌ hf CLI or huggingface-hub not found/working. Installing via uv..."
+    echo "   huggingface-cli not found. Installing via uv..."
 
     # uv check
     if command -v uv >/dev/null 2>&1; then
@@ -50,8 +50,13 @@ else
         export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
     fi
 
-    echo "   Installing/Upgrading huggingface-hub with uv..."
-    uv pip install -U --system huggingface-hub
+    # uv tool install puts the CLI entry point into ~/.local/bin
+    # and manages its own isolated environment — no system Python needed.
+    echo "   Installing huggingface-hub via uv tool..."
+    uv tool install huggingface-hub
+
+    # Make sure ~/.local/bin is on PATH for this session
+    export PATH="$HOME/.local/bin:$PATH"
 
     # Refresh shell command cache
     hash -r
@@ -61,7 +66,7 @@ fi
 echo "📥 Downloading win10.qcow2 (large file) into $REPO_NAME/win10-image/ ..."
 echo "    (This may take a while — progress bar will show)"
 
-hf download NullVoider/windows10-base win10.qcow2 --local-dir "$REPO_NAME/win10-image"
+huggingface-cli download NullVoider/windows10-base win10.qcow2 --local-dir "$REPO_NAME/win10-image"
 
 # ----------------------------- Final message -------------------------------
 echo ""
