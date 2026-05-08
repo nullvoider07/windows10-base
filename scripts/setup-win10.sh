@@ -25,23 +25,36 @@ echo "📁 Creating folder: win10-image/"
 mkdir -p "$REPO_NAME/win10-image"
 
 # ----------------------------- Ensure hf CLI via uv -----------------------
-echo "🔧 Checking Hugging Face CLI (hf)..."
+echo "🔧 Checking Hugging Face CLI (hf) and huggingface-hub package..."
 
-if ! command -v hf >/dev/null 2>&1; then
-    echo "❌ hf CLI not found. Installing via uv (recommended method)..."
+# Repair broken hf (the exact error you saw before)
+if command -v hf >/dev/null 2>&1; then
+    if ! hf --help >/dev/null 2>&1; then
+        echo "   hf CLI exists but is broken. Repairing..."
+        rm -f "$HOME/.local/bin/hf" 2>/dev/null || true
+    fi
+fi
 
-    # Explicit uv check
+# Main check: Is hf working AND is the Python package installed?
+if ! command -v hf >/dev/null 2>&1 || ! python3 -c "import huggingface_hub" 2>/dev/null; then
+    echo "❌ hf CLI or huggingface-hub not found/working. Installing via uv..."
+
+    # uv check
     if command -v uv >/dev/null 2>&1; then
         echo "   uv already available — skipping uv installation."
     else
         echo "   Installing uv package manager..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        # Make uv available in current shell
         export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
     fi
 
-    echo "   Installing huggingface-hub with uv..."
+    echo "   Installing/Upgrading huggingface-hub with uv..."
     uv pip install -U huggingface-hub
+
+    # Refresh command cache
+    hash -r
+else
+    echo "   ✅ huggingface-hub and hf CLI already installed and working."
 fi
 
 # ----------------------------- Download QCOW2 ------------------------------
