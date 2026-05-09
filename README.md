@@ -616,7 +616,7 @@ mkdir windows10-storage
 
 ### Step 4 — Place the Disk Images
 
-Copy or move `base.dmg` and the `data.img` produced in Step 2 into the directory you just created:
+Copy or move the `data.img` produced in Step 2 into the directory you just created:
 
 ```bash
 # Copy (safe — preserves originals)
